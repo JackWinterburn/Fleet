@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
 
 const createFleetSchema = z.object({
@@ -52,12 +52,11 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  setupAuth(app);
 
   app.get("/api/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const stats = await storage.getStats(userId);
       res.json(stats);
     } catch (error) {
@@ -68,7 +67,7 @@ export async function registerRoutes(
 
   app.get("/api/fleets", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const fleetsList = await storage.getFleetsByUser(userId);
       res.json(fleetsList);
     } catch (error) {
@@ -79,7 +78,7 @@ export async function registerRoutes(
 
   app.post("/api/fleets", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const parsed = createFleetSchema.parse(req.body);
       const fleet = await storage.createFleet({
         name: parsed.name,
@@ -98,7 +97,7 @@ export async function registerRoutes(
 
   app.delete("/api/fleets/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const fleet = await storage.getFleet(req.params.id);
       if (!fleet || fleet.ownerId !== userId) {
         return res.status(403).json({ message: "Not authorized" });
@@ -114,7 +113,7 @@ export async function registerRoutes(
   // Vehicles
   app.get("/api/fleets/:fleetId/vehicles", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const vehiclesList = await storage.getVehicles(req.params.fleetId);
@@ -127,7 +126,7 @@ export async function registerRoutes(
 
   app.post("/api/fleets/:fleetId/vehicles", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const parsed = createVehicleSchema.parse(req.body);
@@ -147,7 +146,7 @@ export async function registerRoutes(
 
   app.post("/api/fleets/:fleetId/vehicles/batch", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       if (!Array.isArray(req.body) || req.body.length === 0) {
@@ -179,7 +178,7 @@ export async function registerRoutes(
 
   app.get("/api/fleets/:fleetId/vehicles/:vehicleId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const result = await storage.getVehicleWithTyres(req.params.vehicleId);
@@ -196,7 +195,7 @@ export async function registerRoutes(
 
   app.patch("/api/fleets/:fleetId/vehicles/:vehicleId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const existing = await storage.getVehicle(req.params.vehicleId);
@@ -218,7 +217,7 @@ export async function registerRoutes(
 
   app.delete("/api/fleets/:fleetId/vehicles/:vehicleId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       await storage.deleteVehicle(req.params.vehicleId);
@@ -232,7 +231,7 @@ export async function registerRoutes(
   // Tyres
   app.get("/api/fleets/:fleetId/tyres", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const tyresList = await storage.getTyres(req.params.fleetId);
@@ -245,7 +244,7 @@ export async function registerRoutes(
 
   app.post("/api/fleets/:fleetId/tyres/batch", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       if (!Array.isArray(req.body) || req.body.length === 0) {
@@ -277,7 +276,7 @@ export async function registerRoutes(
 
   app.post("/api/fleets/:fleetId/tyres", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const parsed = createTyreSchema.parse(req.body);
@@ -297,7 +296,7 @@ export async function registerRoutes(
 
   app.patch("/api/fleets/:fleetId/tyres/:tyreId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const existing = await storage.getTyre(req.params.tyreId);
@@ -319,7 +318,7 @@ export async function registerRoutes(
 
   app.delete("/api/fleets/:fleetId/tyres/:tyreId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const existing = await storage.getTyre(req.params.tyreId);
@@ -337,7 +336,7 @@ export async function registerRoutes(
   // Stock
   app.get("/api/fleets/:fleetId/stock", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const items = await storage.getStockItems(req.params.fleetId);
@@ -350,7 +349,7 @@ export async function registerRoutes(
 
   app.post("/api/fleets/:fleetId/stock", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const parsed = createStockSchema.parse(req.body);
@@ -370,7 +369,7 @@ export async function registerRoutes(
 
   app.delete("/api/fleets/:fleetId/stock/:stockId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       await storage.deleteStockItem(req.params.stockId);
@@ -384,7 +383,7 @@ export async function registerRoutes(
   // Alerts
   app.get("/api/fleets/:fleetId/alerts", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const alertsList = await storage.getAlerts(req.params.fleetId);
@@ -397,7 +396,7 @@ export async function registerRoutes(
 
   app.patch("/api/fleets/:fleetId/alerts/mark-all-read", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       await storage.markAllAlertsRead(req.params.fleetId);
@@ -410,7 +409,7 @@ export async function registerRoutes(
 
   app.patch("/api/fleets/:fleetId/alerts/:alertId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       await storage.markAlertRead(req.params.alertId);
@@ -424,7 +423,7 @@ export async function registerRoutes(
   // Members
   app.get("/api/fleets/:fleetId/members", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       const members = await storage.getFleetMembers(req.params.fleetId);
@@ -437,7 +436,7 @@ export async function registerRoutes(
 
   app.post("/api/fleets/:fleetId/members", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
 
@@ -469,7 +468,7 @@ export async function registerRoutes(
 
   app.delete("/api/fleets/:fleetId/members/:memberId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.userId;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
       await storage.removeFleetMember(req.params.memberId);

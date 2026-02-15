@@ -6,7 +6,7 @@ TyreCommand is a progressive web application for fleet tyre management. Users ca
 ## Tech Stack
 - Frontend: React + TypeScript, @carbon/react (IBM Carbon Design System), @carbon/icons-react, Recharts, wouter routing
 - Backend: Express.js, PostgreSQL with Drizzle ORM
-- Auth: Replit OIDC authentication (OpenID Connect)
+- Auth: Username/password authentication with bcrypt hashing, express-session with PostgreSQL store (30-day persistent sessions)
 - Styling: IBM Carbon Design System with GlobalTheme/Theme for dark/light mode, IBM Plex Sans/Mono fonts
 - Forms: react-hook-form with zod validation
 - Data fetching: @tanstack/react-query v5
@@ -14,10 +14,10 @@ TyreCommand is a progressive web application for fleet tyre management. Users ca
 ## Architecture
 - `shared/schema.ts` - All Drizzle ORM models and Zod schemas
 - `shared/models/auth.ts` - Auth-related models (users, sessions)
+- `server/auth.ts` - Username/password auth setup (register, login, logout, session middleware)
 - `server/routes.ts` - All API endpoints with Zod validation
 - `server/storage.ts` - Database storage layer (DatabaseStorage class)
 - `server/db.ts` - Database connection pool
-- `server/replit_integrations/auth/` - Replit Auth integration
 - `client/src/App.tsx` - Main app with Carbon theming, custom sidebar, routing
 - `client/src/carbon.scss` - Carbon SCSS entry point (@use '@carbon/react')
 - `client/src/index.css` - Utility CSS classes for layout (tc-* classes)
@@ -40,7 +40,7 @@ TyreCommand is a progressive web application for fleet tyre management. Users ca
 - ThemeContext exported from App.tsx via useThemeMode() hook
 
 ## Data Model
-- **Users** (from Replit Auth): id, email, firstName, lastName, profileImageUrl
+- **Users**: id, username, email, password (bcrypt hashed), firstName, lastName, profileImageUrl
 - **Fleets**: id, name, description, ownerId
 - **FleetMembers**: id, fleetId, userId, role (owner/admin/member)
 - **Vehicles**: id, fleetId, registration, make, model, year, type, currentMileage, axleCount
@@ -80,6 +80,7 @@ TyreCommand is a progressive web application for fleet tyre management. Users ca
 - Configurable via `FieldDef[]` for different entity types
 
 ## Recent Changes
+- 2026-02-15: Migrated auth from Replit OIDC to username/password (bcrypt, 30-day sessions, login/register UI)
 - 2026-02-15: Added batch upload for vehicles and tyres (CSV/Excel, column mapping, preview, per-item validation)
 - 2026-02-15: Added vehicle editing (PATCH endpoint, edit modal, double-click row support)
 - 2026-02-15: Added tyre editing (PATCH), dynamic position selector based on vehicle type/axle count, edit modal on tyres page

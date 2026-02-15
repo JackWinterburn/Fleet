@@ -4,6 +4,7 @@ import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
+import AuthPage from "@/pages/auth";
 import DashboardPage from "@/pages/dashboard";
 import VehiclesPage from "@/pages/vehicles";
 import VehicleDetailPage from "@/pages/vehicle-detail";
@@ -27,7 +28,7 @@ import {
 } from "@carbon/icons-react";
 import { Button, Loading } from "@carbon/react";
 import type { Fleet } from "@shared/schema";
-import { useState, createContext, useContext } from "react";
+import { useState, createContext, useContext, useCallback } from "react";
 
 type ThemeMode = "white" | "g100";
 
@@ -144,8 +145,8 @@ function Sidebar({ currentFleet }: { currentFleet?: Fleet }) {
           />
         )}
         {user && (
-          <span style={{ fontSize: "0.75rem", opacity: 0.7, marginLeft: "auto" }}>
-            {user.firstName ?? user.email}
+          <span style={{ fontSize: "0.75rem", opacity: 0.7, marginLeft: "auto" }} data-testid="text-user-display">
+            {user.firstName || user.username}
           </span>
         )}
       </div>
@@ -231,6 +232,7 @@ function AuthenticatedRouter() {
 
 function AppContent() {
   const { user, isLoading } = useAuth();
+  const [showAuth, setShowAuth] = useState(false);
 
   if (isLoading) {
     return (
@@ -241,7 +243,10 @@ function AppContent() {
   }
 
   if (!user) {
-    return <LandingPage />;
+    if (showAuth) {
+      return <AuthPage />;
+    }
+    return <LandingPage onLogin={() => setShowAuth(true)} />;
   }
 
   return <AuthenticatedRouter />;

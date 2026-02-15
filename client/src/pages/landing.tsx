@@ -44,7 +44,7 @@ const features = [
   },
 ];
 
-export default function LandingPage() {
+export default function LandingPage({ onLogin }: { onLogin: () => void }) {
   const { mode, toggle } = useThemeMode();
 
   return (
@@ -79,11 +79,9 @@ export default function LandingPage() {
             onClick={toggle}
             data-testid="button-theme-toggle"
           />
-          <a href="/api/login">
-            <Button kind="primary" size="sm" data-testid="button-login">
-              Sign in
-            </Button>
-          </a>
+          <Button kind="primary" size="sm" data-testid="button-login" onClick={onLogin}>
+            Sign in
+          </Button>
         </div>
       </nav>
 
@@ -103,11 +101,9 @@ export default function LandingPage() {
             Reduce costs, extend tyre life, and keep your vehicles safe on the road.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.5rem" }}>
-            <a href="/api/login">
-              <Button kind="primary" renderIcon={ArrowRight} data-testid="button-get-started">
-                Get started
-              </Button>
-            </a>
+            <Button kind="primary" renderIcon={ArrowRight} data-testid="button-get-started" onClick={onLogin}>
+              Get started
+            </Button>
           </div>
           <div style={{ display: "flex", gap: "1.5rem", fontSize: "0.875rem", opacity: 0.6 }}>
             <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
