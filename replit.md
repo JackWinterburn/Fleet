@@ -50,9 +50,11 @@ TyreCommand is a progressive web application for fleet tyre management. Users ca
 
 ## API Routes (all require auth)
 - `GET/POST /api/fleets` - List/create fleets
-- `GET/POST/DELETE /api/fleets/:fleetId/vehicles` - Vehicle CRUD
+- `GET/POST/PATCH/DELETE /api/fleets/:fleetId/vehicles` - Vehicle CRUD (PATCH edits individual vehicle)
+- `POST /api/fleets/:fleetId/vehicles/batch` - Batch create vehicles (per-item safeParse validation)
 - `GET /api/fleets/:fleetId/vehicles/:vehicleId` - Single vehicle with tyres
 - `GET/POST/PATCH/DELETE /api/fleets/:fleetId/tyres` - Tyre CRUD (PATCH updates individual tyre)
+- `POST /api/fleets/:fleetId/tyres/batch` - Batch create tyres (per-item safeParse validation)
 - `GET/POST/DELETE /api/fleets/:fleetId/stock` - Stock CRUD
 - `GET/PATCH /api/fleets/:fleetId/alerts` - Alerts management
 - `PATCH /api/fleets/:fleetId/alerts/mark-all-read` - Mark all alerts read (must be before :alertId route)
@@ -68,7 +70,18 @@ TyreCommand is a progressive web application for fleet tyre management. Users ca
 ## Shared Utilities
 - `client/src/lib/tyre-positions.ts` - Position options generation based on vehicle type/axle count, shared between tyres page and vehicle detail
 
+## Batch Upload
+- Reusable `BatchUpload` component at `client/src/components/batch-upload.tsx`
+- 3-step wizard: Upload File → Map Columns → Preview & Confirm
+- Supports CSV (.csv, .tsv) via papaparse and Excel (.xlsx, .xls) via xlsx library
+- Auto-maps file columns to fields (case-insensitive, handles underscores/spaces/dashes)
+- Preview shows first 50 rows with valid/invalid status; invalid rows skipped on upload
+- Backend uses per-item safeParse for resilient batch processing
+- Configurable via `FieldDef[]` for different entity types
+
 ## Recent Changes
+- 2026-02-15: Added batch upload for vehicles and tyres (CSV/Excel, column mapping, preview, per-item validation)
+- 2026-02-15: Added vehicle editing (PATCH endpoint, edit modal, double-click row support)
 - 2026-02-15: Added tyre editing (PATCH), dynamic position selector based on vehicle type/axle count, edit modal on tyres page
 - 2026-02-15: Added interactive vehicle detail page with SVG top-down visualization, security hardening on tyre/vehicle endpoints
 - 2026-02-15: Complete Carbon Design System migration - replaced all shadcn/ui with @carbon/react components
