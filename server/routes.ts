@@ -162,6 +162,28 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/fleets/:fleetId/vehicles/:vehicleId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const isMember = await storage.isFleetMember(req.params.fleetId, userId);
+      if (!isMember) return res.status(403).json({ message: "Not authorized" });
+      const existing = await storage.getVehicle(req.params.vehicleId);
+      if (!existing || existing.fleetId !== req.params.fleetId) {
+        return res.status(404).json({ message: "Vehicle not found" });
+      }
+      const updateSchema = createVehicleSchema.partial();
+      const parsed = updateSchema.parse(req.body);
+      const vehicle = await storage.updateVehicle(req.params.vehicleId, parsed);
+      res.json(vehicle);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error updating vehicle:", error);
+      res.status(500).json({ message: "Failed to update vehicle" });
+    }
+  });
+
   app.delete("/api/fleets/:fleetId/vehicles/:vehicleId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

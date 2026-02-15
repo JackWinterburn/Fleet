@@ -18,23 +18,15 @@ import {
   Tag,
   SkeletonText,
 } from "@carbon/react";
-import { Add, TrashCan, Van, View } from "@carbon/icons-react";
+import { Edit, Add, TrashCan, Van, View } from "@carbon/icons-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Vehicle } from "@shared/schema";
-import { useState } from "react";
+import { insertVehicleSchema, type Vehicle } from "@shared/schema";
+import { useState, useEffect } from "react";
 import { z } from "zod";
 
-const addVehicleSchema = z.object({
-  registration: z.string().min(1, "Registration is required"),
-  make: z.string().min(1, "Make is required"),
-  model: z.string().min(1, "Model is required"),
-  year: z.coerce.number().min(1990).max(2030).optional(),
-  type: z.string().min(1, "Vehicle type is required"),
-  currentMileage: z.coerce.number().min(0).default(0),
-  axleCount: z.coerce.number().min(1).max(10).default(2),
-});
+const addVehicleSchema = insertVehicleSchema.omit({ fleetId: true });
 
 const headers = [
   { key: "registration", header: "Registration" },
@@ -50,6 +42,7 @@ export default function VehiclesPage() {
   const { fleetId } = useParams<{ fleetId: string }>();
   const [, navigate] = useLocation();
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
   const { data: vehicles, isLoading } = useQuery<Vehicle[]>({
     queryKey: ["/api/fleets", fleetId, "vehicles"],
@@ -68,15 +61,44 @@ export default function VehiclesPage() {
     },
   });
 
-  const addVehicleMutation = useMutation({
+  useEffect(() => {
+    if (editingVehicle) {
+      form.reset({
+        registration: editingVehicle.registration,
+        make: editingVehicle.make,
+        model: editingVehicle.model,
+        year: editingVehicle.year ?? new Date().getFullYear(),
+        type: editingVehicle.type,
+        currentMileage: editingVehicle.currentMileage ?? 0,
+        axleCount: editingVehicle.axleCount,
+      });
+    } else {
+      form.reset({
+        registration: "",
+        make: "",
+        model: "",
+        year: new Date().getFullYear(),
+        type: "light_vehicle",
+        currentMileage: 0,
+        axleCount: 2,
+      });
+    }
+  }, [editingVehicle, form]);
+
+  const vehicleMutation = useMutation({
     mutationFn: async (data: z.infer<typeof addVehicleSchema>) => {
-      const res = await apiRequest("POST", `/api/fleets/${fleetId}/vehicles`, data);
+      const method = editingVehicle ? "PATCH" : "POST";
+      const url = editingVehicle 
+        ? `/api/fleets/${fleetId}/vehicles/${editingVehicle.id}`
+        : `/api/fleets/${fleetId}/vehicles`;
+      const res = await apiRequest(method, url, data);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fleets", fleetId, "vehicles"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       setModalOpen(false);
+      setEditingVehicle(null);
       form.reset();
     },
   });
@@ -91,7 +113,12 @@ export default function VehiclesPage() {
     },
   });
 
-  const onSubmit = form.handleSubmit((d) => addVehicleMutation.mutate(d));
+  const onSubmit = form.handleSubmit((d) => vehicleMutation.mutate(d));
+
+  const handleEdit = (vehicle: Vehicle) => {
+    setEditingVehicle(vehicle);
+    setModalOpen(true);
+  };
 
   const rows = (vehicles ?? []).map((v) => ({
     id: v.id,
@@ -111,7 +138,7 @@ export default function VehiclesPage() {
           <h1 data-testid="text-page-title">Vehicles</h1>
           <p>Manage your fleet vehicles</p>
         </div>
-        <Button kind="primary" renderIcon={Add} onClick={() => setModalOpen(true)} data-testid="button-add-vehicle">
+        <Button kind="primary" renderIcon={Add} onClick={() => { setEditingVehicle(null); setModalOpen(true); }} data-testid="button-add-vehicle">
           Add Vehicle
         </Button>
       </div>
@@ -137,7 +164,13 @@ export default function VehiclesPage() {
                 {tableRows.map((row: any) => {
                   const vehicle = vehicles.find((v) => v.id === row.id);
                   return (
-                    <TableRow {...getRowProps({ row })} key={row.id} data-testid={`row-vehicle-${row.id}`}>
+                    <TableRow 
+                      {...getRowProps({ row })} 
+                      key={row.id} 
+                      data-testid={`row-vehicle-${row.id}`}
+                      onDoubleClick={() => vehicle && handleEdit(vehicle)}
+                      style={{ cursor: "pointer" }}
+                    >
                       {row.cells.map((cell: any) => {
                         if (cell.info.header === "type") {
                           return (
@@ -149,7 +182,7 @@ export default function VehiclesPage() {
                         if (cell.info.header === "actions") {
                           return (
                             <TableCell key={cell.id}>
-                              <div style={{ display: "flex", gap: "0.25rem" }}>
+                              <div style={{ display: "flex", gap: "0.25rem" }} onClick={(e) => e.stopPropagation()}>
                                 <Button
                                   kind="ghost"
                                   size="sm"
@@ -158,6 +191,15 @@ export default function VehiclesPage() {
                                   iconDescription="View vehicle"
                                   onClick={() => navigate(`/fleet/${fleetId}/vehicles/${row.id}`)}
                                   data-testid={`button-view-vehicle-${row.id}`}
+                                />
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  hasIconOnly
+                                  renderIcon={Edit}
+                                  iconDescription="Edit"
+                                  onClick={() => vehicle && handleEdit(vehicle)}
+                                  data-testid={`button-edit-vehicle-${row.id}`}
                                 />
                                 <Button
                                   kind="ghost"
@@ -186,7 +228,7 @@ export default function VehiclesPage() {
           <Van size={32} style={{ opacity: 0.3, marginBottom: "0.5rem" }} />
           <h3>No vehicles yet</h3>
           <p>Add your first vehicle to this fleet.</p>
-          <Button kind="primary" renderIcon={Add} onClick={() => setModalOpen(true)} data-testid="button-add-vehicle-empty">
+          <Button kind="primary" renderIcon={Add} onClick={() => { setEditingVehicle(null); setModalOpen(true); }} data-testid="button-add-vehicle-empty">
             Add Vehicle
           </Button>
         </Tile>
@@ -196,11 +238,11 @@ export default function VehiclesPage() {
         open={modalOpen}
         onRequestClose={() => setModalOpen(false)}
         onRequestSubmit={onSubmit}
-        modalHeading="Add Vehicle"
-        primaryButtonText={addVehicleMutation.isPending ? "Adding..." : "Add Vehicle"}
+        modalHeading={editingVehicle ? "Edit Vehicle" : "Add Vehicle"}
+        primaryButtonText={vehicleMutation.isPending ? (editingVehicle ? "Saving..." : "Adding...") : (editingVehicle ? "Save Changes" : "Add Vehicle")}
         secondaryButtonText="Cancel"
-        primaryButtonDisabled={addVehicleMutation.isPending}
-        data-testid="modal-add-vehicle"
+        primaryButtonDisabled={vehicleMutation.isPending}
+        data-testid="modal-vehicle"
       >
         <div style={{ marginBottom: "1rem" }}>
           <TextInput

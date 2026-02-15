@@ -26,6 +26,7 @@ export interface IStorage {
   getVehicle(id: string): Promise<Vehicle | undefined>;
   getVehicleWithTyres(vehicleId: string): Promise<{ vehicle: Vehicle; tyres: Tyre[] } | undefined>;
   createVehicle(vehicle: InsertVehicle): Promise<Vehicle>;
+  updateVehicle(id: string, data: Partial<InsertVehicle>): Promise<Vehicle>;
   deleteVehicle(id: string): Promise<void>;
 
   getTyres(fleetId: string): Promise<Tyre[]>;
@@ -153,6 +154,11 @@ export class DatabaseStorage implements IStorage {
   async createVehicle(vehicle: InsertVehicle): Promise<Vehicle> {
     const [created] = await db.insert(vehicles).values(vehicle).returning();
     return created;
+  }
+
+  async updateVehicle(id: string, data: Partial<InsertVehicle>): Promise<Vehicle> {
+    const [updated] = await db.update(vehicles).set(data).where(eq(vehicles.id, id)).returning();
+    return updated;
   }
 
   async deleteVehicle(id: string): Promise<void> {
