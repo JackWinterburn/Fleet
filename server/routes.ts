@@ -145,6 +145,23 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/fleets/:fleetId/vehicles/:vehicleId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const isMember = await storage.isFleetMember(req.params.fleetId, userId);
+      if (!isMember) return res.status(403).json({ message: "Not authorized" });
+      const result = await storage.getVehicleWithTyres(req.params.vehicleId);
+      if (!result) return res.status(404).json({ message: "Vehicle not found" });
+      if (result.vehicle.fleetId !== req.params.fleetId) {
+        return res.status(403).json({ message: "Vehicle does not belong to this fleet" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching vehicle:", error);
+      res.status(500).json({ message: "Failed to fetch vehicle" });
+    }
+  });
+
   app.delete("/api/fleets/:fleetId/vehicles/:vehicleId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

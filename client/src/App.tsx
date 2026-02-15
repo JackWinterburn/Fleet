@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/dashboard";
 import VehiclesPage from "@/pages/vehicles";
+import VehicleDetailPage from "@/pages/vehicle-detail";
 import TyresPage from "@/pages/tyres";
 import StockPage from "@/pages/stock";
 import ForecastsPage from "@/pages/forecasts";
@@ -77,7 +78,7 @@ function Sidebar({ currentFleet }: { currentFleet?: Fleet }) {
   const { user, logout } = useAuth();
   const { mode, toggle } = useThemeMode();
   const [location] = useLocation();
-  const { fleetId } = useParams<{ fleetId: string }>();
+  const fleetId = currentFleet?.id;
 
   return (
     <div className="tc-sidebar" style={{ backgroundColor: "var(--cds-layer, #f4f4f4)" }}>
@@ -104,7 +105,7 @@ function Sidebar({ currentFleet }: { currentFleet?: Fleet }) {
             <div className="tc-sidebar-section-label">{currentFleet.name}</div>
             {fleetNavItems.map((item) => {
               const href = `/fleet/${fleetId}/${item.path}`;
-              const isActive = location === href;
+              const isActive = location === href || location.startsWith(href + "/");
               return (
                 <Link key={item.path} href={href}>
                   <div
@@ -152,9 +153,22 @@ function Sidebar({ currentFleet }: { currentFleet?: Fleet }) {
   );
 }
 
-function FleetLayout() {
-  const { fleetId } = useParams<{ fleetId: string }>();
+function FleetPageContent() {
+  return (
+    <Switch>
+      <Route path="/fleet/:fleetId/vehicles/:vehicleId" component={VehicleDetailPage} />
+      <Route path="/fleet/:fleetId/vehicles" component={VehiclesPage} />
+      <Route path="/fleet/:fleetId/tyres" component={TyresPage} />
+      <Route path="/fleet/:fleetId/stock" component={StockPage} />
+      <Route path="/fleet/:fleetId/forecasts" component={ForecastsPage} />
+      <Route path="/fleet/:fleetId/alerts" component={AlertsPage} />
+      <Route path="/fleet/:fleetId/members" component={MembersPage} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
 
+function FleetLayout({ fleetId }: { fleetId: string }) {
   const { data: fleets } = useQuery<Fleet[]>({
     queryKey: ["/api/fleets"],
   });
@@ -171,15 +185,7 @@ function FleetLayout() {
           )}
         </div>
         <div className="tc-content">
-          <Switch>
-            <Route path="/fleet/:fleetId/vehicles" component={VehiclesPage} />
-            <Route path="/fleet/:fleetId/tyres" component={TyresPage} />
-            <Route path="/fleet/:fleetId/stock" component={StockPage} />
-            <Route path="/fleet/:fleetId/forecasts" component={ForecastsPage} />
-            <Route path="/fleet/:fleetId/alerts" component={AlertsPage} />
-            <Route path="/fleet/:fleetId/members" component={MembersPage} />
-            <Route component={NotFound} />
-          </Switch>
+          <FleetPageContent />
         </div>
       </div>
     </div>
@@ -202,11 +208,22 @@ function MainLayout() {
   );
 }
 
+function FleetRoute() {
+  const { fleetId } = useParams<{ fleetId: string }>();
+  return <FleetLayout fleetId={fleetId!} />;
+}
+
 function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/" component={MainLayout} />
-      <Route path="/fleet/:fleetId/:rest*" component={FleetLayout} />
+      <Route path="/fleet/:fleetId/vehicles/:vehicleId" component={FleetRoute} />
+      <Route path="/fleet/:fleetId/vehicles" component={FleetRoute} />
+      <Route path="/fleet/:fleetId/tyres" component={FleetRoute} />
+      <Route path="/fleet/:fleetId/stock" component={FleetRoute} />
+      <Route path="/fleet/:fleetId/forecasts" component={FleetRoute} />
+      <Route path="/fleet/:fleetId/alerts" component={FleetRoute} />
+      <Route path="/fleet/:fleetId/members" component={FleetRoute} />
       <Route component={NotFound} />
     </Switch>
   );

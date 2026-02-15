@@ -23,6 +23,8 @@ export interface IStorage {
   isFleetMember(fleetId: string, userId: string): Promise<boolean>;
 
   getVehicles(fleetId: string): Promise<Vehicle[]>;
+  getVehicle(id: string): Promise<Vehicle | undefined>;
+  getVehicleWithTyres(vehicleId: string): Promise<{ vehicle: Vehicle; tyres: Tyre[] } | undefined>;
   createVehicle(vehicle: InsertVehicle): Promise<Vehicle>;
   deleteVehicle(id: string): Promise<void>;
 
@@ -132,6 +134,18 @@ export class DatabaseStorage implements IStorage {
 
   async getVehicles(fleetId: string): Promise<Vehicle[]> {
     return db.select().from(vehicles).where(eq(vehicles.fleetId, fleetId));
+  }
+
+  async getVehicle(id: string): Promise<Vehicle | undefined> {
+    const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.id, id));
+    return vehicle || undefined;
+  }
+
+  async getVehicleWithTyres(vehicleId: string): Promise<{ vehicle: Vehicle; tyres: Tyre[] } | undefined> {
+    const vehicle = await this.getVehicle(vehicleId);
+    if (!vehicle) return undefined;
+    const vehicleTyres = await db.select().from(tyres).where(eq(tyres.vehicleId, vehicleId));
+    return { vehicle, tyres: vehicleTyres };
   }
 
   async createVehicle(vehicle: InsertVehicle): Promise<Vehicle> {

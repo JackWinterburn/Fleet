@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import {
   Button,
   Modal,
@@ -18,7 +18,7 @@ import {
   Tag,
   SkeletonText,
 } from "@carbon/react";
-import { Add, TrashCan, Van } from "@carbon/icons-react";
+import { Add, TrashCan, Van, View } from "@carbon/icons-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -48,6 +48,7 @@ const headers = [
 
 export default function VehiclesPage() {
   const { fleetId } = useParams<{ fleetId: string }>();
+  const [, navigate] = useLocation();
   const [modalOpen, setModalOpen] = useState(false);
 
   const { data: vehicles, isLoading } = useQuery<Vehicle[]>({
@@ -61,7 +62,7 @@ export default function VehiclesPage() {
       make: "",
       model: "",
       year: new Date().getFullYear(),
-      type: "truck",
+      type: "light_vehicle",
       currentMileage: 0,
       axleCount: 2,
     },
@@ -148,15 +149,26 @@ export default function VehiclesPage() {
                         if (cell.info.header === "actions") {
                           return (
                             <TableCell key={cell.id}>
-                              <Button
-                                kind="ghost"
-                                size="sm"
-                                hasIconOnly
-                                renderIcon={TrashCan}
-                                iconDescription="Delete"
-                                onClick={() => deleteVehicleMutation.mutate(row.id)}
-                                data-testid={`button-delete-vehicle-${row.id}`}
-                              />
+                              <div style={{ display: "flex", gap: "0.25rem" }}>
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  hasIconOnly
+                                  renderIcon={View}
+                                  iconDescription="View vehicle"
+                                  onClick={() => navigate(`/fleet/${fleetId}/vehicles/${row.id}`)}
+                                  data-testid={`button-view-vehicle-${row.id}`}
+                                />
+                                <Button
+                                  kind="ghost"
+                                  size="sm"
+                                  hasIconOnly
+                                  renderIcon={TrashCan}
+                                  iconDescription="Delete"
+                                  onClick={() => deleteVehicleMutation.mutate(row.id)}
+                                  data-testid={`button-delete-vehicle-${row.id}`}
+                                />
+                              </div>
                             </TableCell>
                           );
                         }
@@ -241,11 +253,12 @@ export default function VehiclesPage() {
             onChange={(e: any) => form.setValue("type", e.target.value)}
             data-testid="select-vehicle-type"
           >
+            <SelectItem value="light_vehicle" text="Light Vehicle (Car/SUV)" />
+            <SelectItem value="service_vehicle" text="Service Vehicle (Van/Pickup)" />
             <SelectItem value="truck" text="Truck" />
-            <SelectItem value="van" text="Van" />
+            <SelectItem value="dump_truck" text="Dump Truck" />
             <SelectItem value="bus" text="Bus" />
             <SelectItem value="trailer" text="Trailer" />
-            <SelectItem value="car" text="Car" />
           </Select>
           <NumberInput
             id="vehicle-axles"
