@@ -150,11 +150,24 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
-      const batchSchema = z.array(createVehicleSchema);
-      const parsed = batchSchema.parse(req.body);
-      const items = parsed.map((v) => ({ ...v, fleetId: req.params.fleetId }));
-      const created = await storage.createVehiclesBatch(items);
-      res.json(created);
+      if (!Array.isArray(req.body) || req.body.length === 0) {
+        return res.status(400).json({ message: "Request body must be a non-empty array" });
+      }
+      const validItems: any[] = [];
+      const errors: { index: number; errors: any }[] = [];
+      req.body.forEach((item: any, idx: number) => {
+        const result = createVehicleSchema.safeParse(item);
+        if (result.success) {
+          validItems.push({ ...result.data, fleetId: req.params.fleetId });
+        } else {
+          errors.push({ index: idx, errors: result.error.errors });
+        }
+      });
+      if (validItems.length === 0) {
+        return res.status(400).json({ message: "No valid items in batch", errors });
+      }
+      const created = await storage.createVehiclesBatch(validItems);
+      res.json({ created, skipped: errors.length });
     } catch (error: any) {
       if (error.name === "ZodError") {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
@@ -235,11 +248,24 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
-      const batchSchema = z.array(createTyreSchema);
-      const parsed = batchSchema.parse(req.body);
-      const items = parsed.map((t) => ({ ...t, fleetId: req.params.fleetId }));
-      const created = await storage.createTyresBatch(items);
-      res.json(created);
+      if (!Array.isArray(req.body) || req.body.length === 0) {
+        return res.status(400).json({ message: "Request body must be a non-empty array" });
+      }
+      const validItems: any[] = [];
+      const errors: { index: number; errors: any }[] = [];
+      req.body.forEach((item: any, idx: number) => {
+        const result = createTyreSchema.safeParse(item);
+        if (result.success) {
+          validItems.push({ ...result.data, fleetId: req.params.fleetId });
+        } else {
+          errors.push({ index: idx, errors: result.error.errors });
+        }
+      });
+      if (validItems.length === 0) {
+        return res.status(400).json({ message: "No valid items in batch", errors });
+      }
+      const created = await storage.createTyresBatch(validItems);
+      res.json({ created, skipped: errors.length });
     } catch (error: any) {
       if (error.name === "ZodError") {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
