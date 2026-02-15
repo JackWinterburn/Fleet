@@ -29,7 +29,9 @@ export interface IStorage {
   deleteVehicle(id: string): Promise<void>;
 
   getTyres(fleetId: string): Promise<Tyre[]>;
+  getTyre(id: string): Promise<Tyre | undefined>;
   createTyre(tyre: InsertTyre): Promise<Tyre>;
+  updateTyre(id: string, data: Partial<InsertTyre>): Promise<Tyre>;
   deleteTyre(id: string): Promise<void>;
 
   getStockItems(fleetId: string): Promise<StockItem[]>;
@@ -161,9 +163,19 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(tyres).where(eq(tyres.fleetId, fleetId));
   }
 
+  async getTyre(id: string): Promise<Tyre | undefined> {
+    const [tyre] = await db.select().from(tyres).where(eq(tyres.id, id));
+    return tyre || undefined;
+  }
+
   async createTyre(tyre: InsertTyre): Promise<Tyre> {
     const [created] = await db.insert(tyres).values(tyre).returning();
     return created;
+  }
+
+  async updateTyre(id: string, data: Partial<InsertTyre>): Promise<Tyre> {
+    const [updated] = await db.update(tyres).set(data).where(eq(tyres.id, id)).returning();
+    return updated;
   }
 
   async deleteTyre(id: string): Promise<void> {

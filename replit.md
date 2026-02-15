@@ -51,7 +51,8 @@ TyreCommand is a progressive web application for fleet tyre management. Users ca
 ## API Routes (all require auth)
 - `GET/POST /api/fleets` - List/create fleets
 - `GET/POST/DELETE /api/fleets/:fleetId/vehicles` - Vehicle CRUD
-- `GET/POST/DELETE /api/fleets/:fleetId/tyres` - Tyre CRUD
+- `GET /api/fleets/:fleetId/vehicles/:vehicleId` - Single vehicle with tyres
+- `GET/POST/PATCH/DELETE /api/fleets/:fleetId/tyres` - Tyre CRUD (PATCH updates individual tyre)
 - `GET/POST/DELETE /api/fleets/:fleetId/stock` - Stock CRUD
 - `GET/PATCH /api/fleets/:fleetId/alerts` - Alerts management
 - `PATCH /api/fleets/:fleetId/alerts/mark-all-read` - Mark all alerts read (must be before :alertId route)
@@ -64,6 +65,11 @@ TyreCommand is a progressive web application for fleet tyre management. Users ca
 - Professional, information-dense UI
 - IBM Plex Sans font family
 
+## Shared Utilities
+- `client/src/lib/tyre-positions.ts` - Position options generation based on vehicle type/axle count, shared between tyres page and vehicle detail
+
 ## Recent Changes
+- 2026-02-15: Added tyre editing (PATCH), dynamic position selector based on vehicle type/axle count, edit modal on tyres page
+- 2026-02-15: Added interactive vehicle detail page with SVG top-down visualization, security hardening on tyre/vehicle endpoints
 - 2026-02-15: Complete Carbon Design System migration - replaced all shadcn/ui with @carbon/react components
 - 2026-02-15: Initial build - complete MVP with all pages, auth, and database

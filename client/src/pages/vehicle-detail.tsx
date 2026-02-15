@@ -4,6 +4,7 @@ import { Button, Tile, Tag, SkeletonText, Loading } from "@carbon/react";
 import { ArrowLeft, CircleFilled, WarningAlt } from "@carbon/icons-react";
 import type { Vehicle, Tyre } from "@shared/schema";
 import { useState } from "react";
+import { positionLabels } from "@/lib/tyre-positions";
 
 const statusTagType: Record<string, string> = {
   in_use: "green",
@@ -629,7 +630,7 @@ export default function VehicleDetailPage() {
                       <div>
                         <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>{tyre.brand} {tyre.model}</div>
                         <div style={{ fontSize: "0.75rem", opacity: 0.6, fontFamily: "var(--font-mono)" }}>
-                          {tyre.serialNumber} - {tyre.position ? tyre.position.replace(/_/g, " ") : "unassigned"}
+                          {tyre.serialNumber} - {tyre.position ? (positionLabels[tyre.position] || tyre.position.replace(/_/g, " ")) : "unassigned"}
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

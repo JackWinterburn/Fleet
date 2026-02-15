@@ -209,11 +209,37 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/fleets/:fleetId/tyres/:tyreId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const isMember = await storage.isFleetMember(req.params.fleetId, userId);
+      if (!isMember) return res.status(403).json({ message: "Not authorized" });
+      const existing = await storage.getTyre(req.params.tyreId);
+      if (!existing || existing.fleetId !== req.params.fleetId) {
+        return res.status(404).json({ message: "Tyre not found" });
+      }
+      const updateSchema = createTyreSchema.partial();
+      const parsed = updateSchema.parse(req.body);
+      const tyre = await storage.updateTyre(req.params.tyreId, parsed);
+      res.json(tyre);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error updating tyre:", error);
+      res.status(500).json({ message: "Failed to update tyre" });
+    }
+  });
+
   app.delete("/api/fleets/:fleetId/tyres/:tyreId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const isMember = await storage.isFleetMember(req.params.fleetId, userId);
       if (!isMember) return res.status(403).json({ message: "Not authorized" });
+      const existing = await storage.getTyre(req.params.tyreId);
+      if (!existing || existing.fleetId !== req.params.fleetId) {
+        return res.status(404).json({ message: "Tyre not found" });
+      }
       await storage.deleteTyre(req.params.tyreId);
       res.json({ success: true });
     } catch (error) {
