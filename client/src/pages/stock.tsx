@@ -1,19 +1,26 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Button,
+  Modal,
+  TextInput,
+  NumberInput,
+  DataTable,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeader,
+  TableBody,
+  TableCell,
+  Tile,
+  InlineNotification,
+  SkeletonText,
+} from "@carbon/react";
+import { Add, TrashCan, Package, WarningAlt } from "@carbon/icons-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import type { StockItem } from "@shared/schema";
-import { Plus, Package, Trash2, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -27,10 +34,19 @@ const addStockSchema = z.object({
   location: z.string().optional(),
 });
 
+const headers = [
+  { key: "brandModel", header: "Brand / Model" },
+  { key: "size", header: "Size" },
+  { key: "quantity", header: "Quantity" },
+  { key: "minQuantity", header: "Min Qty" },
+  { key: "unitCost", header: "Unit Cost" },
+  { key: "location", header: "Location" },
+  { key: "actions", header: "" },
+];
+
 export default function StockPage() {
   const { fleetId } = useParams<{ fleetId: string }>();
-  const { toast } = useToast();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const { data: stockItems, isLoading } = useQuery<StockItem[]>({
     queryKey: ["/api/fleets", fleetId, "stock"],
@@ -57,12 +73,8 @@ export default function StockPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fleets", fleetId, "stock"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "Stock item added" });
-      setDialogOpen(false);
+      setModalOpen(false);
       form.reset();
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -73,161 +85,195 @@ export default function StockPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fleets", fleetId, "stock"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "Stock item removed" });
     },
   });
 
+  const onSubmit = form.handleSubmit((d) => addStockMutation.mutate(d));
+
   const lowStockCount = stockItems?.filter((s) => s.quantity <= (s.minQuantity ?? 2)).length ?? 0;
 
+  const rows = (stockItems ?? []).map((item) => ({
+    id: item.id,
+    brandModel: `${item.brand} ${item.model}`,
+    size: item.size,
+    quantity: item.quantity,
+    minQuantity: item.minQuantity,
+    unitCost: item.unitCost ? `$${Number(item.unitCost).toFixed(2)}` : "—",
+    location: item.location || "—",
+    actions: "",
+    _isLow: item.quantity <= (item.minQuantity ?? 2),
+  }));
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <div className="tc-page-header">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">Stock</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your tyre inventory</p>
+          <h1 data-testid="text-page-title">Stock</h1>
+          <p>Manage your tyre inventory</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-stock">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Stock Item
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Stock Item</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit((d) => addStockMutation.mutate(d))} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField control={form.control} name="brand" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Brand</FormLabel>
-                      <FormControl><Input placeholder="e.g. Bridgestone" {...field} data-testid="input-stock-brand" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="model" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Model</FormLabel>
-                      <FormControl><Input placeholder="e.g. R168" {...field} data-testid="input-stock-model" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-                <FormField control={form.control} name="size" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Size</FormLabel>
-                    <FormControl><Input placeholder="e.g. 385/65R22.5" {...field} data-testid="input-stock-size" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <div className="grid grid-cols-3 gap-3">
-                  <FormField control={form.control} name="quantity" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantity</FormLabel>
-                      <FormControl><Input type="number" {...field} data-testid="input-stock-qty" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="minQuantity" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Min Qty</FormLabel>
-                      <FormControl><Input type="number" {...field} data-testid="input-stock-min-qty" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="unitCost" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Unit Cost</FormLabel>
-                      <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ""} data-testid="input-stock-cost" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-                <FormField control={form.control} name="location" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Storage Location</FormLabel>
-                    <FormControl><Input placeholder="e.g. Warehouse A" {...field} data-testid="input-stock-location" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <Button type="submit" className="w-full" disabled={addStockMutation.isPending} data-testid="button-submit-stock">
-                  {addStockMutation.isPending ? "Adding..." : "Add Stock Item"}
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button kind="primary" renderIcon={Add} onClick={() => setModalOpen(true)} data-testid="button-add-stock">
+          Add Stock Item
+        </Button>
       </div>
 
       {lowStockCount > 0 && (
-        <Card className="p-3 bg-chart-4/5 border-chart-4/20">
-          <div className="flex items-center gap-2 text-sm">
-            <AlertTriangle className="w-4 h-4 text-chart-4" />
-            <span className="font-medium">{lowStockCount} item{lowStockCount > 1 ? "s" : ""} at or below minimum stock level</span>
-          </div>
-        </Card>
+        <div style={{ marginBottom: "1rem" }}>
+          <InlineNotification
+            kind="warning"
+            title="Low stock"
+            subtitle={`${lowStockCount} item${lowStockCount > 1 ? "s" : ""} at or below minimum stock level`}
+            hideCloseButton
+          />
+        </div>
       )}
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
-        </div>
+        <Tile><SkeletonText paragraph lineCount={5} /></Tile>
       ) : stockItems && stockItems.length > 0 ? (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Brand / Model</TableHead>
-                <TableHead>Size</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Min Qty</TableHead>
-                <TableHead className="text-right">Unit Cost</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {stockItems.map((item) => {
-                const isLow = item.quantity <= (item.minQuantity ?? 2);
-                return (
-                  <TableRow key={item.id} data-testid={`row-stock-${item.id}`}>
-                    <TableCell className="font-medium">{item.brand} {item.model}</TableCell>
-                    <TableCell className="font-mono text-sm">{item.size}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={isLow ? "text-destructive font-semibold" : ""}>{item.quantity}</span>
-                      {isLow && <AlertTriangle className="w-3 h-3 text-destructive inline ml-1" />}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">{item.minQuantity}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {item.unitCost ? `$${item.unitCost.toFixed(2)}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{item.location || "—"}</TableCell>
-                    <TableCell>
-                      <Button size="icon" variant="ghost" onClick={() => deleteStockMutation.mutate(item.id)} data-testid={`button-delete-stock-${item.id}`}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+        <DataTable rows={rows} headers={headers}>
+          {({ rows: tableRows, headers: tableHeaders, getHeaderProps, getRowProps, getTableProps }) => (
+            <Table {...getTableProps()}>
+              <TableHead>
+                <TableRow>
+                  {tableHeaders.map((header: any) => (
+                    <TableHeader {...getHeaderProps({ header })} key={header.key}>
+                      {header.header}
+                    </TableHeader>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {tableRows.map((row: any) => {
+                  const item = stockItems.find((s) => s.id === row.id);
+                  const isLow = item ? item.quantity <= (item.minQuantity ?? 2) : false;
+                  return (
+                    <TableRow {...getRowProps({ row })} key={row.id} data-testid={`row-stock-${row.id}`}>
+                      {row.cells.map((cell: any) => {
+                        if (cell.info.header === "quantity" && isLow) {
+                          return (
+                            <TableCell key={cell.id}>
+                              <span style={{ color: "#da1e28", fontWeight: 600 }}>{cell.value}</span>
+                              <WarningAlt size={12} style={{ color: "#da1e28", marginLeft: "0.25rem", verticalAlign: "middle" }} />
+                            </TableCell>
+                          );
+                        }
+                        if (cell.info.header === "actions") {
+                          return (
+                            <TableCell key={cell.id}>
+                              <Button
+                                kind="ghost"
+                                size="sm"
+                                hasIconOnly
+                                renderIcon={TrashCan}
+                                iconDescription="Delete"
+                                onClick={() => deleteStockMutation.mutate(row.id)}
+                                data-testid={`button-delete-stock-${row.id}`}
+                              />
+                            </TableCell>
+                          );
+                        }
+                        return <TableCell key={cell.id}>{cell.value}</TableCell>;
+                      })}
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </DataTable>
       ) : (
-        <Card className="p-8 text-center">
-          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center mx-auto mb-3">
-            <Package className="w-6 h-6 text-muted-foreground" />
-          </div>
-          <h3 className="font-medium mb-1">No stock items yet</h3>
-          <p className="text-sm text-muted-foreground mb-4">Add tyre stock to track your inventory.</p>
-          <Button onClick={() => setDialogOpen(true)} data-testid="button-add-stock-empty">
-            <Plus className="w-4 h-4 mr-2" />
+        <Tile className="tc-empty-state">
+          <Package size={32} style={{ opacity: 0.3, marginBottom: "0.5rem" }} />
+          <h3>No stock items yet</h3>
+          <p>Add tyre stock to track your inventory.</p>
+          <Button kind="primary" renderIcon={Add} onClick={() => setModalOpen(true)} data-testid="button-add-stock-empty">
             Add Stock Item
           </Button>
-        </Card>
+        </Tile>
       )}
+
+      <Modal
+        open={modalOpen}
+        onRequestClose={() => setModalOpen(false)}
+        onRequestSubmit={onSubmit}
+        modalHeading="Add Stock Item"
+        primaryButtonText={addStockMutation.isPending ? "Adding..." : "Add Stock Item"}
+        secondaryButtonText="Cancel"
+        primaryButtonDisabled={addStockMutation.isPending}
+        data-testid="modal-add-stock"
+      >
+        <div className="tc-form-row tc-form-row-2">
+          <TextInput
+            id="stock-brand"
+            labelText="Brand"
+            placeholder="e.g. Bridgestone"
+            value={form.watch("brand")}
+            onChange={(e: any) => form.setValue("brand", e.target.value)}
+            invalid={!!form.formState.errors.brand}
+            invalidText={form.formState.errors.brand?.message}
+            data-testid="input-stock-brand"
+          />
+          <TextInput
+            id="stock-model"
+            labelText="Model"
+            placeholder="e.g. R168"
+            value={form.watch("model")}
+            onChange={(e: any) => form.setValue("model", e.target.value)}
+            invalid={!!form.formState.errors.model}
+            invalidText={form.formState.errors.model?.message}
+            data-testid="input-stock-model"
+          />
+        </div>
+        <div style={{ marginBottom: "1rem" }}>
+          <TextInput
+            id="stock-size"
+            labelText="Size"
+            placeholder="e.g. 385/65R22.5"
+            value={form.watch("size")}
+            onChange={(e: any) => form.setValue("size", e.target.value)}
+            invalid={!!form.formState.errors.size}
+            invalidText={form.formState.errors.size?.message}
+            data-testid="input-stock-size"
+          />
+        </div>
+        <div className="tc-form-row tc-form-row-3">
+          <NumberInput
+            id="stock-quantity"
+            label="Quantity"
+            min={0}
+            value={form.watch("quantity")}
+            onChange={(_e: any, { value }: any) => form.setValue("quantity", value)}
+            data-testid="input-stock-qty"
+          />
+          <NumberInput
+            id="stock-min-qty"
+            label="Min Qty"
+            min={0}
+            value={form.watch("minQuantity")}
+            onChange={(_e: any, { value }: any) => form.setValue("minQuantity", value)}
+            data-testid="input-stock-min-qty"
+          />
+          <NumberInput
+            id="stock-cost"
+            label="Unit Cost"
+            min={0}
+            step={0.01}
+            value={form.watch("unitCost") ?? 0}
+            onChange={(_e: any, { value }: any) => form.setValue("unitCost", value || undefined)}
+            data-testid="input-stock-cost"
+          />
+        </div>
+        <div style={{ marginTop: "1rem" }}>
+          <TextInput
+            id="stock-location"
+            labelText="Storage Location"
+            placeholder="e.g. Warehouse A"
+            value={form.watch("location") ?? ""}
+            onChange={(e: any) => form.setValue("location", e.target.value)}
+            data-testid="input-stock-location"
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

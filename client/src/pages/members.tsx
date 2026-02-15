@@ -1,20 +1,20 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Button,
+  Modal,
+  TextInput,
+  Select,
+  SelectItem,
+  Tile,
+  Tag,
+  SkeletonText,
+} from "@carbon/react";
+import { Add, TrashCan, UserMultiple, UserAdmin, User } from "@carbon/icons-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Plus, Users, Trash2, Shield, Crown, User } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -38,17 +38,16 @@ interface MemberWithUser {
   };
 }
 
-const roleConfig: Record<string, { icon: typeof User; color: string; label: string }> = {
-  owner: { icon: Crown, color: "text-chart-4", label: "Owner" },
-  admin: { icon: Shield, color: "text-chart-1", label: "Admin" },
-  member: { icon: User, color: "text-muted-foreground", label: "Member" },
+const roleConfig: Record<string, { color: string; label: string; tagType: string }> = {
+  owner: { color: "#b28600", label: "Owner", tagType: "warm-gray" },
+  admin: { color: "#0f62fe", label: "Admin", tagType: "blue" },
+  member: { color: "#525252", label: "Member", tagType: "gray" },
 };
 
 export default function MembersPage() {
   const { fleetId } = useParams<{ fleetId: string }>();
-  const { toast } = useToast();
   const { user } = useAuth();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const { data: members, isLoading } = useQuery<MemberWithUser[]>({
     queryKey: ["/api/fleets", fleetId, "members"],
@@ -66,12 +65,8 @@ export default function MembersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fleets", fleetId, "members"] });
-      toast({ title: "Member added" });
-      setDialogOpen(false);
+      setModalOpen(false);
       form.reset();
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -81,129 +76,123 @@ export default function MembersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fleets", fleetId, "members"] });
-      toast({ title: "Member removed" });
     },
   });
+
+  const onSubmit = form.handleSubmit((d) => addMemberMutation.mutate(d));
 
   const currentUserRole = members?.find((m) => m.userId === user?.id)?.role;
   const canManage = currentUserRole === "owner" || currentUserRole === "admin";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <div className="tc-page-header">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">Members</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage team access to this fleet</p>
+          <h1 data-testid="text-page-title">Members</h1>
+          <p>Manage team access to this fleet</p>
         </div>
         {canManage && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-member">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Member
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Member</DialogTitle>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit((d) => addMemberMutation.mutate(d))} className="space-y-4">
-                  <FormField control={form.control} name="email" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="colleague@company.com" type="email" {...field} data-testid="input-member-email" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="role" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Role</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-member-role">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <Button type="submit" className="w-full" disabled={addMemberMutation.isPending} data-testid="button-submit-member">
-                    {addMemberMutation.isPending ? "Adding..." : "Add Member"}
-                  </Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+          <Button kind="primary" renderIcon={Add} onClick={() => setModalOpen(true)} data-testid="button-add-member">
+            Add Member
+          </Button>
         )}
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {[1, 2, 3].map((i) => <Tile key={i}><SkeletonText paragraph lineCount={2} /></Tile>)}
         </div>
       ) : members && members.length > 0 ? (
-        <div className="space-y-2">
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           {members.map((member) => {
             const config = roleConfig[member.role] || roleConfig.member;
-            const RoleIcon = config.icon;
             const initials = `${member.user.firstName?.[0] ?? ""}${member.user.lastName?.[0] ?? ""}`.toUpperCase() || "U";
             const isOwner = member.role === "owner";
             const isSelf = member.userId === user?.id;
 
             return (
-              <Card key={member.id} className="p-4" data-testid={`card-member-${member.id}`}>
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={member.user.profileImageUrl ?? undefined} />
-                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">
+              <Tile key={member.id} data-testid={`card-member-${member.id}`}>
+                <div className="tc-member-card" style={{ padding: 0 }}>
+                  <div
+                    className="tc-avatar"
+                    style={{ backgroundColor: "var(--cds-border-subtle, #e0e0e0)", color: "var(--cds-text-primary, #161616)" }}
+                  >
+                    {member.user.profileImageUrl ? (
+                      <img src={member.user.profileImageUrl} alt={initials} />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+                  <div className="tc-member-info">
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <span className="tc-member-name">
                         {member.user.firstName} {member.user.lastName}
                       </span>
-                      {isSelf && <Badge variant="secondary" className="text-xs">You</Badge>}
+                      {isSelf && <Tag size="sm" type="blue">You</Tag>}
                     </div>
-                    <p className="text-xs text-muted-foreground">{member.user.email}</p>
+                    <span className="tc-member-email">{member.user.email}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      <RoleIcon className={`w-3 h-3 ${config.color}`} />
-                      <span className="text-xs font-medium text-muted-foreground">{config.label}</span>
-                    </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <Tag size="sm" type={config.tagType as any}>{config.label}</Tag>
                     {canManage && !isOwner && !isSelf && (
                       <Button
-                        size="icon"
-                        variant="ghost"
+                        kind="ghost"
+                        size="sm"
+                        hasIconOnly
+                        renderIcon={TrashCan}
+                        iconDescription="Remove"
                         onClick={() => removeMemberMutation.mutate(member.id)}
                         data-testid={`button-remove-member-${member.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      />
                     )}
                   </div>
                 </div>
-              </Card>
+              </Tile>
             );
           })}
         </div>
       ) : (
-        <Card className="p-8 text-center">
-          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center mx-auto mb-3">
-            <Users className="w-6 h-6 text-muted-foreground" />
-          </div>
-          <h3 className="font-medium mb-1">No members</h3>
-          <p className="text-sm text-muted-foreground">Invite team members to collaborate on this fleet.</p>
-        </Card>
+        <Tile className="tc-empty-state">
+          <UserMultiple size={32} style={{ opacity: 0.3, marginBottom: "0.5rem" }} />
+          <h3>No members</h3>
+          <p>Invite team members to collaborate on this fleet.</p>
+        </Tile>
       )}
+
+      <Modal
+        open={modalOpen}
+        onRequestClose={() => setModalOpen(false)}
+        onRequestSubmit={onSubmit}
+        modalHeading="Add Member"
+        primaryButtonText={addMemberMutation.isPending ? "Adding..." : "Add Member"}
+        secondaryButtonText="Cancel"
+        primaryButtonDisabled={addMemberMutation.isPending}
+        data-testid="modal-add-member"
+      >
+        <div style={{ marginBottom: "1rem" }}>
+          <TextInput
+            id="member-email"
+            labelText="Email Address"
+            placeholder="colleague@company.com"
+            type="email"
+            value={form.watch("email")}
+            onChange={(e: any) => form.setValue("email", e.target.value)}
+            invalid={!!form.formState.errors.email}
+            invalidText={form.formState.errors.email?.message}
+            data-testid="input-member-email"
+          />
+        </div>
+        <Select
+          id="member-role"
+          labelText="Role"
+          value={form.watch("role")}
+          onChange={(e: any) => form.setValue("role", e.target.value)}
+          data-testid="select-member-role"
+        >
+          <SelectItem value="admin" text="Admin" />
+          <SelectItem value="member" text="Member" />
+        </Select>
+      </Modal>
     </div>
   );
 }

@@ -1,29 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Fleet } from "@shared/schema";
+import {
+  Button,
+  Tile,
+  ClickableTile,
+  Modal,
+  TextInput,
+  TextArea,
+  InlineLoading,
+  SkeletonText,
+} from "@carbon/react";
+import { Add, Van, CircleFilled, WarningAlt, Package, ChevronRight } from "@carbon/icons-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { insertFleetSchema } from "@shared/schema";
-import type { Fleet, Vehicle, Tyre, Alert } from "@shared/schema";
-import {
-  Plus,
-  Truck,
-  Circle,
-  AlertTriangle,
-  ChevronRight,
-  Package,
-} from "lucide-react";
-import { useState } from "react";
 import { z } from "zod";
 
 const createFleetSchema = z.object({
@@ -32,8 +24,8 @@ const createFleetSchema = z.object({
 });
 
 export default function DashboardPage() {
-  const { toast } = useToast();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [, navigate] = useLocation();
+  const [modalOpen, setModalOpen] = useState(false);
 
   const { data: fleets, isLoading: fleetsLoading } = useQuery<Fleet[]>({
     queryKey: ["/api/fleets"],
@@ -61,135 +53,123 @@ export default function DashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fleets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "Fleet created", description: "Your new fleet is ready." });
-      setDialogOpen(false);
+      setModalOpen(false);
       form.reset();
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
+  const onSubmit = form.handleSubmit((d) => createFleetMutation.mutate(d));
+
+  const statCards = [
+    { label: "Vehicles", value: stats?.totalVehicles ?? 0, Icon: Van },
+    { label: "Tyres", value: stats?.totalTyres ?? 0, Icon: CircleFilled },
+    { label: "Active Alerts", value: stats?.activeAlerts ?? 0, Icon: WarningAlt },
+    { label: "Stock Items", value: stats?.stockItems ?? 0, Icon: Package },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <div className="tc-page-header">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Overview of your fleet operations</p>
+          <h1 data-testid="text-page-title">Dashboard</h1>
+          <p>Overview of your fleet operations</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-fleet">
-              <Plus className="w-4 h-4 mr-2" />
-              New Fleet
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Fleet</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit((d) => createFleetMutation.mutate(d))} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fleet Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. North Region Fleet" {...field} data-testid="input-fleet-name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Optional description..." {...field} data-testid="input-fleet-description" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={createFleetMutation.isPending} data-testid="button-submit-fleet">
-                  {createFleetMutation.isPending ? "Creating..." : "Create Fleet"}
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button
+          kind="primary"
+          renderIcon={Add}
+          onClick={() => setModalOpen(true)}
+          data-testid="button-create-fleet"
+        >
+          New Fleet
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Vehicles", value: stats?.totalVehicles ?? 0, icon: Truck, color: "text-chart-1" },
-          { label: "Tyres", value: stats?.totalTyres ?? 0, icon: Circle, color: "text-chart-2" },
-          { label: "Active Alerts", value: stats?.activeAlerts ?? 0, icon: AlertTriangle, color: "text-chart-4" },
-          { label: "Stock Items", value: stats?.stockItems ?? 0, icon: Package, color: "text-chart-3" },
-        ].map((stat) => (
-          <Card key={stat.label} className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{stat.label}</span>
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
+      <div className="tc-grid tc-grid-4" style={{ marginBottom: "1.5rem" }}>
+        {statCards.map((s) => (
+          <Tile key={s.label} className="tc-stat-tile">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span className="tc-stat-label">{s.label}</span>
+              <s.Icon size={16} style={{ opacity: 0.5 }} />
             </div>
-            <p className="text-2xl font-semibold mt-2" data-testid={`text-stat-${stat.label.toLowerCase().replace(/\s/g, "-")}`}>
-              {fleetsLoading ? <Skeleton className="h-8 w-16" /> : stat.value}
-            </p>
-          </Card>
+            <span className="tc-stat-value" data-testid={`text-stat-${s.label.toLowerCase().replace(/\s/g, "-")}`}>
+              {fleetsLoading ? <SkeletonText width="3rem" /> : s.value}
+            </span>
+          </Tile>
         ))}
       </div>
 
-      <div>
-        <h2 className="text-lg font-medium mb-3">Your Fleets</h2>
-        {fleetsLoading ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="p-4">
-                <Skeleton className="h-5 w-32 mb-2" />
-                <Skeleton className="h-4 w-48" />
-              </Card>
-            ))}
-          </div>
-        ) : fleets && fleets.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {fleets.map((fleet) => (
-              <Link key={fleet.id} href={`/fleet/${fleet.id}/vehicles`}>
-                <Card className="p-4 hover-elevate cursor-pointer" data-testid={`card-fleet-${fleet.id}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-medium truncate">{fleet.name}</h3>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  </div>
-                  {fleet.description && (
-                    <p className="text-sm text-muted-foreground mt-1 truncate">{fleet.description}</p>
-                  )}
-                  <div className="flex items-center gap-2 mt-3">
-                    <Badge variant="secondary" className="text-xs">Fleet</Badge>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <Card className="p-8 text-center">
-            <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center mx-auto mb-3">
-              <Truck className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <h3 className="font-medium mb-1">No fleets yet</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Create your first fleet to start managing your vehicles and tyres.
-            </p>
-            <Button onClick={() => setDialogOpen(true)} data-testid="button-create-fleet-empty">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Fleet
-            </Button>
-          </Card>
-        )}
-      </div>
+      <h2 style={{ fontSize: "1.125rem", fontWeight: 500, marginBottom: "0.75rem" }}>Your Fleets</h2>
+
+      {fleetsLoading ? (
+        <div className="tc-grid tc-grid-3">
+          {[1, 2, 3].map((i) => (
+            <Tile key={i}>
+              <SkeletonText heading width="60%" />
+              <SkeletonText width="80%" />
+            </Tile>
+          ))}
+        </div>
+      ) : fleets && fleets.length > 0 ? (
+        <div className="tc-grid tc-grid-3">
+          {fleets.map((fleet) => (
+            <ClickableTile
+              key={fleet.id}
+              data-testid={`card-fleet-${fleet.id}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => navigate(`/fleet/${fleet.id}/vehicles`)}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                <span style={{ fontWeight: 500 }}>{fleet.name}</span>
+                <ChevronRight size={16} style={{ opacity: 0.5 }} />
+              </div>
+              {fleet.description && (
+                <p style={{ fontSize: "0.875rem", opacity: 0.7, margin: 0 }}>{fleet.description}</p>
+              )}
+            </ClickableTile>
+          ))}
+        </div>
+      ) : (
+        <Tile className="tc-empty-state">
+          <Van size={32} style={{ opacity: 0.3, marginBottom: "0.5rem" }} />
+          <h3>No fleets yet</h3>
+          <p>Create your first fleet to start managing your vehicles and tyres.</p>
+          <Button kind="primary" renderIcon={Add} onClick={() => setModalOpen(true)} data-testid="button-create-fleet-empty">
+            Create Fleet
+          </Button>
+        </Tile>
+      )}
+
+      <Modal
+        open={modalOpen}
+        onRequestClose={() => setModalOpen(false)}
+        onRequestSubmit={onSubmit}
+        modalHeading="Create Fleet"
+        primaryButtonText={createFleetMutation.isPending ? "Creating..." : "Create Fleet"}
+        secondaryButtonText="Cancel"
+        primaryButtonDisabled={createFleetMutation.isPending}
+        data-testid="modal-create-fleet"
+      >
+        <div style={{ marginBottom: "1rem" }}>
+          <TextInput
+            id="fleet-name"
+            labelText="Fleet Name"
+            placeholder="e.g. North Region Fleet"
+            value={form.watch("name")}
+            onChange={(e: any) => form.setValue("name", e.target.value)}
+            invalid={!!form.formState.errors.name}
+            invalidText={form.formState.errors.name?.message}
+            data-testid="input-fleet-name"
+          />
+        </div>
+        <TextArea
+          id="fleet-description"
+          labelText="Description"
+          placeholder="Optional description..."
+          value={form.watch("description") ?? ""}
+          onChange={(e: any) => form.setValue("description", e.target.value)}
+          data-testid="input-fleet-description"
+        />
+      </Modal>
     </div>
   );
 }

@@ -1,23 +1,18 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Button, Tile, Tag, SkeletonText } from "@carbon/react";
+import { Checkmark, Alarm, InformationFilled, WarningAltFilled, ErrorFilled } from "@carbon/icons-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import type { Alert } from "@shared/schema";
-import { AlertTriangle, Info, AlertCircle, Check, Bell } from "lucide-react";
 
-const severityConfig: Record<string, { icon: typeof Info; color: string; bg: string }> = {
-  info: { icon: Info, color: "text-chart-1", bg: "bg-chart-1/10" },
-  warning: { icon: AlertTriangle, color: "text-chart-4", bg: "bg-chart-4/10" },
-  critical: { icon: AlertCircle, color: "text-destructive", bg: "bg-destructive/10" },
+const severityConfig: Record<string, { Icon: typeof InformationFilled; color: string; tagType: string }> = {
+  info: { Icon: InformationFilled, color: "#0f62fe", tagType: "blue" },
+  warning: { Icon: WarningAltFilled, color: "#f1c21b", tagType: "warm-gray" },
+  critical: { Icon: ErrorFilled, color: "#da1e28", tagType: "red" },
 };
 
 export default function AlertsPage() {
   const { fleetId } = useParams<{ fleetId: string }>();
-  const { toast } = useToast();
 
   const { data: alerts, isLoading } = useQuery<Alert[]>({
     queryKey: ["/api/fleets", fleetId, "alerts"],
@@ -40,91 +35,85 @@ export default function AlertsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/fleets", fleetId, "alerts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({ title: "All alerts marked as read" });
     },
   });
 
   const unreadCount = alerts?.filter((a) => !a.isRead).length ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <div className="tc-page-header">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">Alerts</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {unreadCount > 0 ? `${unreadCount} unread alert${unreadCount > 1 ? "s" : ""}` : "No unread alerts"}
-          </p>
+          <h1 data-testid="text-page-title">Alerts</h1>
+          <p>{unreadCount > 0 ? `${unreadCount} unread alert${unreadCount > 1 ? "s" : ""}` : "No unread alerts"}</p>
         </div>
         {unreadCount > 0 && (
           <Button
-            variant="secondary"
+            kind="secondary"
+            renderIcon={Checkmark}
             onClick={() => markAllReadMutation.mutate()}
             disabled={markAllReadMutation.isPending}
             data-testid="button-mark-all-read"
           >
-            <Check className="w-4 h-4 mr-2" />
             Mark All Read
           </Button>
         )}
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          {[1, 2, 3].map((i) => <Tile key={i}><SkeletonText paragraph lineCount={2} /></Tile>)}
         </div>
       ) : alerts && alerts.length > 0 ? (
-        <div className="space-y-2">
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           {alerts.map((alert) => {
             const config = severityConfig[alert.severity] || severityConfig.info;
-            const Icon = config.icon;
+            const { Icon } = config;
             return (
-              <Card
+              <Tile
                 key={alert.id}
-                className={`p-4 ${alert.isRead ? "opacity-60" : ""}`}
+                style={{ opacity: alert.isRead ? 0.6 : 1 }}
                 data-testid={`card-alert-${alert.id}`}
               >
-                <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 rounded-md ${config.bg} flex items-center justify-center flex-shrink-0`}>
-                    <Icon className={`w-4 h-4 ${config.color}`} />
+                <div className="tc-alert-card" style={{ padding: 0 }}>
+                  <div className="tc-alert-icon" style={{ backgroundColor: `${config.color}20` }}>
+                    <Icon size={16} style={{ color: config.color }} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-medium text-sm">{alert.title}</h3>
-                        <Badge variant="secondary" className="text-xs capitalize">{alert.severity}</Badge>
-                        <Badge variant="secondary" className="text-xs">{alert.type.replace(/_/g, " ")}</Badge>
+                  <div className="tc-alert-content">
+                    <div className="tc-alert-header">
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        <span className="tc-alert-title">{alert.title}</span>
+                        <Tag size="sm" type={config.tagType as any}>{alert.severity}</Tag>
+                        <Tag size="sm" type="gray">{alert.type.replace(/_/g, " ")}</Tag>
                       </div>
                       {!alert.isRead && (
                         <Button
-                          size="icon"
-                          variant="ghost"
+                          kind="ghost"
+                          size="sm"
+                          hasIconOnly
+                          renderIcon={Checkmark}
+                          iconDescription="Mark as read"
                           onClick={() => markReadMutation.mutate(alert.id)}
                           data-testid={`button-mark-read-${alert.id}`}
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
+                        />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{alert.message}</p>
-                    <p className="text-xs text-muted-foreground mt-2">
+                    <p className="tc-alert-message">{alert.message}</p>
+                    <p className="tc-alert-time">
                       {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : ""}
                     </p>
                   </div>
                 </div>
-              </Card>
+              </Tile>
             );
           })}
         </div>
       ) : (
-        <Card className="p-8 text-center">
-          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center mx-auto mb-3">
-            <Bell className="w-6 h-6 text-muted-foreground" />
-          </div>
-          <h3 className="font-medium mb-1">No alerts</h3>
-          <p className="text-sm text-muted-foreground">
-            Alerts will appear here when tyres need attention.
-          </p>
-        </Card>
+        <Tile className="tc-empty-state">
+          <Alarm size={32} style={{ opacity: 0.3, marginBottom: "0.5rem" }} />
+          <h3>No alerts</h3>
+          <p>Alerts will appear here when tyres need attention.</p>
+        </Tile>
       )}
     </div>
   );

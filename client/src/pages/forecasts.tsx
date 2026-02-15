@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Tile, SkeletonText, InlineNotification } from "@carbon/react";
+import { CircleFilled, WarningAlt, Currency, ChartBar } from "@carbon/icons-react";
 import type { Tyre, StockItem } from "@shared/schema";
 import {
   BarChart,
@@ -16,15 +16,8 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { TrendingUp, DollarSign, AlertTriangle, Circle } from "lucide-react";
 
-const CHART_COLORS = [
-  "hsl(201, 96%, 32%)",
-  "hsl(271, 81%, 38%)",
-  "hsl(142, 76%, 30%)",
-  "hsl(28, 92%, 42%)",
-  "hsl(340, 82%, 40%)",
-];
+const CHART_COLORS = ["#0f62fe", "#6929c4", "#198038", "#b28600", "#da1e28"];
 
 export default function ForecastsPage() {
   const { fleetId } = useParams<{ fleetId: string }>();
@@ -65,79 +58,75 @@ export default function ForecastsPage() {
   const avgTreadDepth = tyres && tyres.length > 0
     ? tyres.reduce((sum, t) => sum + (t.treadDepth ?? 0), 0) / tyres.length
     : 0;
-
-  const totalStockValue = stockItems?.reduce((sum, s) => sum + (s.quantity * (s.unitCost ?? 0)), 0) ?? 0;
+  const totalStockValue = stockItems?.reduce((sum, s) => sum + (s.quantity * (Number(s.unitCost) ?? 0)), 0) ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">Forecasts & Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-1">Tyre performance insights and cost projections</p>
+    <div>
+      <div className="tc-page-header">
+        <div>
+          <h1 data-testid="text-page-title">Forecasts & Analytics</h1>
+          <p>Tyre performance insights and cost projections</p>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" />)}
+        <div className="tc-grid tc-grid-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Tile key={i}><SkeletonText heading width="50%" /><SkeletonText width="30%" /></Tile>
+          ))}
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Card className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Avg Tread</span>
-                <Circle className="w-4 h-4 text-chart-1" />
+          <div className="tc-grid tc-grid-4" style={{ marginBottom: "1.5rem" }}>
+            <Tile className="tc-stat-tile">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span className="tc-stat-label">Avg Tread</span>
+                <CircleFilled size={16} style={{ opacity: 0.5 }} />
               </div>
-              <p className="text-2xl font-semibold mt-2" data-testid="text-avg-tread">{avgTreadDepth.toFixed(1)}mm</p>
-            </Card>
-            <Card className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Need Replacing</span>
-                <AlertTriangle className="w-4 h-4 text-chart-4" />
+              <span className="tc-stat-value" data-testid="text-avg-tread">{avgTreadDepth.toFixed(1)}mm</span>
+            </Tile>
+            <Tile className="tc-stat-tile">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span className="tc-stat-label">Need Replacing</span>
+                <WarningAlt size={16} style={{ opacity: 0.5 }} />
               </div>
-              <p className="text-2xl font-semibold mt-2" data-testid="text-need-replacing">{needingReplacementSoon}</p>
-            </Card>
-            <Card className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Tyre Spend</span>
-                <DollarSign className="w-4 h-4 text-chart-3" />
+              <span className="tc-stat-value" data-testid="text-need-replacing">{needingReplacementSoon}</span>
+            </Tile>
+            <Tile className="tc-stat-tile">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span className="tc-stat-label">Tyre Spend</span>
+                <Currency size={16} style={{ opacity: 0.5 }} />
               </div>
-              <p className="text-2xl font-semibold mt-2" data-testid="text-tyre-spend">${totalTyreCost.toLocaleString()}</p>
-            </Card>
-            <Card className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Stock Value</span>
-                <TrendingUp className="w-4 h-4 text-chart-2" />
+              <span className="tc-stat-value" data-testid="text-tyre-spend">${totalTyreCost.toLocaleString()}</span>
+            </Tile>
+            <Tile className="tc-stat-tile">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span className="tc-stat-label">Stock Value</span>
+                <ChartBar size={16} style={{ opacity: 0.5 }} />
               </div>
-              <p className="text-2xl font-semibold mt-2" data-testid="text-stock-value">${totalStockValue.toLocaleString()}</p>
-            </Card>
+              <span className="tc-stat-value" data-testid="text-stock-value">${totalStockValue.toLocaleString()}</span>
+            </Tile>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-4">
-            <Card className="p-4">
-              <h3 className="font-medium mb-4">Tread Depth Distribution</h3>
-              <div className="h-64">
+          <div className="tc-grid tc-grid-2" style={{ marginBottom: "1.5rem" }}>
+            <Tile>
+              <h3 style={{ fontWeight: 500, marginBottom: "1rem" }}>Tread Depth Distribution</h3>
+              <div style={{ height: "16rem" }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={treadData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="range" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{
-                        background: "hsl(var(--popover))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <Bar dataKey="count" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--cds-border-subtle, #e0e0e0)" />
+                    <XAxis dataKey="range" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#0f62fe" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </Card>
+            </Tile>
 
-            <Card className="p-4">
-              <h3 className="font-medium mb-4">Tyre Status Breakdown</h3>
-              <div className="h-64">
+            <Tile>
+              <h3 style={{ fontWeight: 500, marginBottom: "1rem" }}>Tyre Status Breakdown</h3>
+              <div style={{ height: "16rem" }}>
                 {statusData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -160,28 +149,21 @@ export default function ForecastsPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.5, fontSize: "0.875rem" }}>
                     No tyre data available
                   </div>
                 )}
               </div>
-            </Card>
+            </Tile>
           </div>
 
           {needingReplacementSoon > 0 && (
-            <Card className="p-4 bg-chart-4/5 border-chart-4/20">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-chart-4 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-medium">Replacement Forecast</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {needingReplacementSoon} tyre{needingReplacementSoon > 1 ? "s" : ""} currently in use
-                    {needingReplacementSoon > 1 ? " have" : " has"} tread depth below 3mm and will need replacing soon.
-                    Estimated replacement cost: <span className="font-semibold">${(needingReplacementSoon * 350).toLocaleString()}</span> (based on average tyre cost).
-                  </p>
-                </div>
-              </div>
-            </Card>
+            <InlineNotification
+              kind="warning"
+              title="Replacement Forecast"
+              subtitle={`${needingReplacementSoon} tyre${needingReplacementSoon > 1 ? "s" : ""} currently in use ${needingReplacementSoon > 1 ? "have" : "has"} tread depth below 3mm. Estimated replacement cost: $${(needingReplacementSoon * 350).toLocaleString()}`}
+              hideCloseButton
+            />
           )}
         </>
       )}
