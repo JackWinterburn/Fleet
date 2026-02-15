@@ -153,6 +153,16 @@ export default function BatchUpload({ open, onClose, onSubmit, isPending, entity
           if (!isNaN(n)) val = n;
           else val = undefined;
         }
+        if (val !== undefined && field.options) {
+          const normalized = String(val).toLowerCase().replace(/[\s_-]+/g, "");
+          const match = field.options.find(
+            (o) =>
+              o.value === val ||
+              o.value.toLowerCase().replace(/[\s_-]+/g, "") === normalized ||
+              o.label.toLowerCase().replace(/[\s_-]+/g, "") === normalized
+          );
+          val = match ? match.value : val;
+        }
         if (val !== undefined) {
           item[field.key] = val;
         }
