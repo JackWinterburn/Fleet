@@ -18,13 +18,24 @@ import {
   Tag,
   SkeletonText,
 } from "@carbon/react";
-import { Edit, Add, TrashCan, Van, View } from "@carbon/icons-react";
+import { Edit, Add, TrashCan, Van, View, Upload } from "@carbon/icons-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertVehicleSchema, type Vehicle } from "@shared/schema";
 import { useState, useEffect } from "react";
 import { z } from "zod";
+import BatchUpload, { type FieldDef } from "@/components/batch-upload";
+
+const vehicleBatchFields: FieldDef[] = [
+  { key: "registration", label: "Registration", required: true, type: "string" },
+  { key: "make", label: "Make", required: true, type: "string" },
+  { key: "model", label: "Model", required: true, type: "string" },
+  { key: "year", label: "Year", type: "number" },
+  { key: "type", label: "Type", required: true, type: "string" },
+  { key: "currentMileage", label: "Current Mileage", type: "number" },
+  { key: "axleCount", label: "Axle Count", type: "number" },
+];
 
 const addVehicleSchema = insertVehicleSchema.omit({ fleetId: true });
 
@@ -43,6 +54,7 @@ export default function VehiclesPage() {
   const [, navigate] = useLocation();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [batchOpen, setBatchOpen] = useState(false);
 
   const { data: vehicles, isLoading } = useQuery<Vehicle[]>({
     queryKey: ["/api/fleets", fleetId, "vehicles"],
@@ -70,7 +82,7 @@ export default function VehiclesPage() {
         year: editingVehicle.year ?? undefined,
         type: editingVehicle.type,
         currentMileage: editingVehicle.currentMileage ?? 0,
-        axleCount: editingVehicle.axleCount,
+        axleCount: editingVehicle.axleCount ?? 2,
       });
     } else {
       form.reset({
@@ -113,6 +125,18 @@ export default function VehiclesPage() {
     },
   });
 
+  const batchMutation = useMutation({
+    mutationFn: async (data: Record<string, any>[]) => {
+      const res = await apiRequest("POST", `/api/fleets/${fleetId}/vehicles/batch`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fleets", fleetId, "vehicles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      setBatchOpen(false);
+    },
+  });
+
   const onSubmit = form.handleSubmit((d) => vehicleMutation.mutate(d));
 
   const handleEdit = (vehicle: Vehicle) => {
@@ -138,9 +162,14 @@ export default function VehiclesPage() {
           <h1 data-testid="text-page-title">Vehicles</h1>
           <p>Manage your fleet vehicles</p>
         </div>
-        <Button kind="primary" renderIcon={Add} onClick={() => { setEditingVehicle(null); setModalOpen(true); }} data-testid="button-add-vehicle">
-          Add Vehicle
-        </Button>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <Button kind="tertiary" renderIcon={Upload} onClick={() => setBatchOpen(true)} data-testid="button-batch-upload-vehicles">
+            Batch Upload
+          </Button>
+          <Button kind="primary" renderIcon={Add} onClick={() => { setEditingVehicle(null); setModalOpen(true); }} data-testid="button-add-vehicle">
+            Add Vehicle
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -323,6 +352,15 @@ export default function VehiclesPage() {
           />
         </div>
       </Modal>
+
+      <BatchUpload
+        open={batchOpen}
+        onClose={() => setBatchOpen(false)}
+        onSubmit={(data) => batchMutation.mutate(data)}
+        isPending={batchMutation.isPending}
+        entityName="Vehicle"
+        fields={vehicleBatchFields}
+      />
     </div>
   );
 }

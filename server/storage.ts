@@ -26,12 +26,14 @@ export interface IStorage {
   getVehicle(id: string): Promise<Vehicle | undefined>;
   getVehicleWithTyres(vehicleId: string): Promise<{ vehicle: Vehicle; tyres: Tyre[] } | undefined>;
   createVehicle(vehicle: InsertVehicle): Promise<Vehicle>;
+  createVehiclesBatch(items: InsertVehicle[]): Promise<Vehicle[]>;
   updateVehicle(id: string, data: Partial<InsertVehicle>): Promise<Vehicle>;
   deleteVehicle(id: string): Promise<void>;
 
   getTyres(fleetId: string): Promise<Tyre[]>;
   getTyre(id: string): Promise<Tyre | undefined>;
   createTyre(tyre: InsertTyre): Promise<Tyre>;
+  createTyresBatch(items: InsertTyre[]): Promise<Tyre[]>;
   updateTyre(id: string, data: Partial<InsertTyre>): Promise<Tyre>;
   deleteTyre(id: string): Promise<void>;
 
@@ -156,6 +158,11 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async createVehiclesBatch(items: InsertVehicle[]): Promise<Vehicle[]> {
+    if (items.length === 0) return [];
+    return db.insert(vehicles).values(items).returning();
+  }
+
   async updateVehicle(id: string, data: Partial<InsertVehicle>): Promise<Vehicle> {
     const [updated] = await db.update(vehicles).set(data).where(eq(vehicles.id, id)).returning();
     return updated;
@@ -177,6 +184,11 @@ export class DatabaseStorage implements IStorage {
   async createTyre(tyre: InsertTyre): Promise<Tyre> {
     const [created] = await db.insert(tyres).values(tyre).returning();
     return created;
+  }
+
+  async createTyresBatch(items: InsertTyre[]): Promise<Tyre[]> {
+    if (items.length === 0) return [];
+    return db.insert(tyres).values(items).returning();
   }
 
   async updateTyre(id: string, data: Partial<InsertTyre>): Promise<Tyre> {

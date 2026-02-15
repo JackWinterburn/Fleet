@@ -18,7 +18,7 @@ import {
   Tag,
   SkeletonText,
 } from "@carbon/react";
-import { Add, TrashCan, CircleFilled, Edit } from "@carbon/icons-react";
+import { Add, TrashCan, CircleFilled, Edit, Upload } from "@carbon/icons-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -26,6 +26,19 @@ import type { Tyre, Vehicle } from "@shared/schema";
 import { useState, useEffect } from "react";
 import { z } from "zod";
 import { getPositionOptionsForVehicle, positionLabels } from "@/lib/tyre-positions";
+import BatchUpload, { type FieldDef } from "@/components/batch-upload";
+
+const tyreBatchFields: FieldDef[] = [
+  { key: "brand", label: "Brand", required: true, type: "string" },
+  { key: "model", label: "Model", required: true, type: "string" },
+  { key: "size", label: "Size", required: true, type: "string" },
+  { key: "serialNumber", label: "Serial Number", required: true, type: "string" },
+  { key: "status", label: "Status", type: "string" },
+  { key: "treadDepth", label: "Tread Depth (mm)", type: "number" },
+  { key: "pressure", label: "Pressure (psi)", type: "number" },
+  { key: "cost", label: "Cost", type: "number" },
+  { key: "mileage", label: "Mileage", type: "number" },
+];
 
 const tyreFormSchema = z.object({
   brand: z.string().min(1, "Brand is required"),
@@ -258,6 +271,7 @@ export default function TyresPage() {
   const { fleetId } = useParams<{ fleetId: string }>();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingTyre, setEditingTyre] = useState<Tyre | null>(null);
+  const [batchOpen, setBatchOpen] = useState(false);
 
   const { data: tyres, isLoading } = useQuery<Tyre[]>({
     queryKey: ["/api/fleets", fleetId, "tyres"],
@@ -341,6 +355,18 @@ export default function TyresPage() {
     },
   });
 
+  const batchMutation = useMutation({
+    mutationFn: async (data: Record<string, any>[]) => {
+      const res = await apiRequest("POST", `/api/fleets/${fleetId}/tyres/batch`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/fleets", fleetId, "tyres"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      setBatchOpen(false);
+    },
+  });
+
   const onAddSubmit = addForm.handleSubmit((d) => addTyreMutation.mutate(d));
   const onEditSubmit = editForm.handleSubmit((d) => editTyreMutation.mutate(d));
 
@@ -366,9 +392,14 @@ export default function TyresPage() {
           <h1 data-testid="text-page-title">Tyres</h1>
           <p>Track and manage all fleet tyres</p>
         </div>
-        <Button kind="primary" renderIcon={Add} onClick={() => setAddModalOpen(true)} data-testid="button-add-tyre">
-          Add Tyre
-        </Button>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <Button kind="tertiary" renderIcon={Upload} onClick={() => setBatchOpen(true)} data-testid="button-batch-upload-tyres">
+            Batch Upload
+          </Button>
+          <Button kind="primary" renderIcon={Add} onClick={() => setAddModalOpen(true)} data-testid="button-add-tyre">
+            Add Tyre
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -481,6 +512,15 @@ export default function TyresPage() {
       >
         <TyreFormFields form={editForm} vehicles={vehicles} />
       </Modal>
+
+      <BatchUpload
+        open={batchOpen}
+        onClose={() => setBatchOpen(false)}
+        onSubmit={(data) => batchMutation.mutate(data)}
+        isPending={batchMutation.isPending}
+        entityName="Tyre"
+        fields={tyreBatchFields}
+      />
     </div>
   );
 }

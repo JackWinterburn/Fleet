@@ -145,6 +145,25 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/fleets/:fleetId/vehicles/batch", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const isMember = await storage.isFleetMember(req.params.fleetId, userId);
+      if (!isMember) return res.status(403).json({ message: "Not authorized" });
+      const batchSchema = z.array(createVehicleSchema);
+      const parsed = batchSchema.parse(req.body);
+      const items = parsed.map((v) => ({ ...v, fleetId: req.params.fleetId }));
+      const created = await storage.createVehiclesBatch(items);
+      res.json(created);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error batch creating vehicles:", error);
+      res.status(500).json({ message: "Failed to batch create vehicles" });
+    }
+  });
+
   app.get("/api/fleets/:fleetId/vehicles/:vehicleId", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -208,6 +227,25 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching tyres:", error);
       res.status(500).json({ message: "Failed to fetch tyres" });
+    }
+  });
+
+  app.post("/api/fleets/:fleetId/tyres/batch", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const isMember = await storage.isFleetMember(req.params.fleetId, userId);
+      if (!isMember) return res.status(403).json({ message: "Not authorized" });
+      const batchSchema = z.array(createTyreSchema);
+      const parsed = batchSchema.parse(req.body);
+      const items = parsed.map((t) => ({ ...t, fleetId: req.params.fleetId }));
+      const created = await storage.createTyresBatch(items);
+      res.json(created);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error batch creating tyres:", error);
+      res.status(500).json({ message: "Failed to batch create tyres" });
     }
   });
 
