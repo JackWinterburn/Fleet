@@ -67,7 +67,7 @@ export default function VehiclesPage() {
         registration: editingVehicle.registration,
         make: editingVehicle.make,
         model: editingVehicle.model,
-        year: editingVehicle.year ?? new Date().getFullYear(),
+        year: editingVehicle.year ?? undefined,
         type: editingVehicle.type,
         currentMileage: editingVehicle.currentMileage ?? 0,
         axleCount: editingVehicle.axleCount,
